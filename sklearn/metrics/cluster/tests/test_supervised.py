@@ -10,6 +10,7 @@ from sklearn.metrics.cluster import normalized_mutual_info_score
 from sklearn.metrics.cluster import mutual_info_score
 from sklearn.metrics.cluster import expected_mutual_information
 from sklearn.metrics.cluster import contingency_matrix
+from sklearn.metrics.cluster import fowlkes_mallows_score
 from sklearn.metrics.cluster import entropy
 
 from sklearn.utils.testing import assert_raise_message
@@ -158,6 +159,12 @@ def test_adjusted_mutual_info_score():
     assert_almost_equal(ami, 0.37, 2)
 
 
+def test_expected_mutual_info_overflow():
+    # Test for regression where contingency cell exceeds 2**16
+    # leading to overflow in np.outer, resulting in EMI > 1
+    assert expected_mutual_information(np.array([[70000]]), 70000) <= 1
+
+
 def test_entropy():
     ent = entropy([0, 0, 42.])
     assert_almost_equal(ent, 0.6365141, 5)
@@ -223,3 +230,20 @@ def test_max_n_classes():
         assert_raise_message(ValueError, expected, score_func,
                              labels_zero, labels_pred,
                              max_n_classes=50)
+
+
+def test_fowlkes_mallows_score():
+    # General case
+    score = fowlkes_mallows_score([0, 0, 0, 1, 1, 1],
+                                  [0, 0, 1, 1, 2, 2])
+    assert_almost_equal(score, 4. / np.sqrt(12. * 6.))
+
+    # Perfect match but where the label names changed
+    perfect_score = fowlkes_mallows_score([0, 0, 0, 1, 1, 1],
+                                          [1, 1, 1, 0, 0, 0])
+    assert_almost_equal(perfect_score, 1.)
+
+    # Worst case
+    worst_score = fowlkes_mallows_score([0, 0, 0, 0, 0, 0],
+                                        [0, 1, 2, 3, 4, 5])
+    assert_almost_equal(worst_score, 0.)
